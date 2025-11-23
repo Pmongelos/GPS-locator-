@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Localizador GPS Móvil</title>
+   
+    <!-- Carga de Tailwind CSS para un diseño moderno y móvil-friendly -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos personalizados para la estética */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Fondo oscuro */
+        }
+        .card {
+            background-color: #161b22; /* Fondo de tarjeta más claro */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .result-label {
+            color: #8b949e;
+        }
+        .result-value {
+            color: #c9d1d9;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body class="p-4 flex items-center justify-center min-h-screen">
+
+    <div id="app" class="card p-6 md:p-8 w-full max-w-sm mx-auto rounded-xl border border-gray-700">
+        <h1 class="text-2xl font-bold text-white mb-4 text-center">Localizador GPS</h1>
+        <p class="text-sm text-gray-400 mb-6 text-center">Toca el botón para obtener tu ubicación actual.</p>
+
+        <!-- Botón de Acción -->
+        <button id="get-location-btn"
+                class="w-full py-3 px-4 mb-6 rounded-lg font-semibold transition duration-200
+                       bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/50
+                       focus:outline-none focus:ring-4 focus:ring-blue-500/50 active:scale-95">
+            Obtener Coordenadas
+        </button>
+
+        <!-- Indicador de Carga/Mensajes -->
+        <div id="message" class="text-center text-sm mb-4 text-yellow-400 hidden">
+            <!-- SVG de carga (Spinning loader) - Tags verificados y cerrados correctamente -->
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Buscando ubicación...
+        </div>
+
+        <!-- Resultados -->
+        <div id="results-container" class="space-y-3 p-4 bg-gray-800 rounded-lg hidden">
+            <h2 class="text-lg font-semibold text-green-400 mb-3 border-b border-gray-700 pb-2">Ubicación Obtenida</h2>
+           
+            <div class="flex flex-col">
+                <span class="result-label text-xs">Latitud:</span>
+                <span id="latitude" class="result-value font-mono">--</span>
+            </div>
+           
+            <div class="flex flex-col">
+                <span class="result-label text-xs">Longitud:</span>
+                <span id="longitude" class="result-value font-mono">--</span>
+            </div>
+
+            <div class="flex flex-col">
+                <span class="result-label text-xs">Precisión (metros):</span>
+                <span id="accuracy" class="result-value">--</span>
+            </div>
+
+            <div class="flex flex-col">
+                <span class="result-label text-xs">Hora de Lectura:</span>
+                <span id="timestamp" class="result-value">--</span>
+            </div>
+        </div>
+
+        <!-- Contenedor para Errores -->
+        <div id="error-box" class="p-3 bg-red-800/30 text-red-400 rounded-lg hidden">
+            <span class="font-bold">Error de GPS:</span> <span id="error-message"></span>
+        </div>
+
+        <!-- Sugerencia de instalación para móvil -->
+        <div class="mt-6 p-3 text-center bg-gray-800/50 text-gray-400 text-xs rounded-lg border border-gray-700">
+            <p>Para usar como app, abre en tu navegador móvil y selecciona "Agregar a pantalla de inicio".</p>
+        </div>
+    </div>
+
+    <script>
+        const btn = document.getElementById('get-location-btn');
+        const message = document.getElementById('message');
+        const resultsContainer = document.getElementById('results-container');
+        const errorBox = document.getElementById('error-box');
+        const errorMessage = document.getElementById('error-message');
+
+        // Referencias a los campos de resultado
+        const latDisplay = document.getElementById('latitude');
+        const lonDisplay = document.getElementById('longitude');
+        const accDisplay = document.getElementById('accuracy');
+        const tsDisplay = document.getElementById('timestamp');
+
+        /**
+         * Función que se ejecuta cuando se obtiene la ubicación con éxito.
+         * @param {GeolocationPosition} position - Objeto con los datos de la posición.
+         */
+        function success(position) {
+            // Detener la carga y mostrar resultados
+            message.classList.add('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Obtener Coordenadas';
+            errorBox.classList.add('hidden');
+
+            const coords = position.coords;
+            const date = new Date(position.timestamp);
+
+            latDisplay.textContent = coords.latitude.toFixed(6);
+            lonDisplay.textContent = coords.longitude.toFixed(6);
+            accDisplay.textContent = Math.round(coords.accuracy);
+            tsDisplay.textContent = date.toLocaleTimeString('es-ES') + ' (' + date.toLocaleDateString('es-ES') + ')';
+           
+            resultsContainer.classList.remove('hidden');
+
+            // Opcional: Centrar la vista en el contenedor de resultados si está en móvil
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /**
+         * Función que se ejecuta si hay un error al obtener la ubicación.
+         * @param {GeolocationPositionError} err - Objeto de error.
+         */
+        function error(err) {
+            // Detener la carga y mostrar el error
+            message.classList.add('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Obtener Coordenadas';
+            resultsContainer.classList.add('hidden');
+
+            let msg = '';
+            switch (err.code) {
+                case err.PERMISSION_DENIED:
+                    msg = "Permiso denegado: Necesitas permitir el acceso a la ubicación.";
+                    break;
+                case err.POSITION_UNAVAILABLE:
+                    msg = "Posición no disponible: No se puede determinar la ubicación.";
+                    break;
+                case err.TIMEOUT:
+                    msg = "Tiempo de espera agotado: El intento de obtener la ubicación ha tardado demasiado.";
+                    break;
+                default:
+                    msg = "Error desconocido (" + err.code + ").";
+            }
+
+            errorMessage.textContent = msg;
+            errorBox.classList.remove('hidden');
+            console.error('Error de Geolocation:', err.message);
+        }
+
+        /**
+         * Función principal para solicitar la ubicación.
+         */
+        function getLocation() {
+            if (!navigator.geolocation) {
+                // Si el navegador no soporta Geolocation
+                errorMessage.textContent = "Tu navegador no soporta la API de Geolocation.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            // Ocultar resultados y errores previos
+            resultsContainer.classList.add('hidden');
+            errorBox.classList.add('hidden');
+           
+            // Mostrar estado de carga y deshabilitar botón
+            message.classList.remove('hidden');
+            btn.disabled = true;
+            btn.textContent = 'Buscando...';
+
+            // Opciones de Geolocation: alta precisión y tiempo máximo de espera de 10 segundos
+            // Usamos enableHighAccuracy: true para forzar el uso de GPS si es posible (especialmente en exteriores)
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0 // No usar caché
+            };
+
+            // Llamada a la API de Geolocation
+            navigator.geolocation.getCurrentPosition(success, error, options);
+        }
+
+        // Asignar el evento click al botón
+        btn.addEventListener('click', getLocation);
+
+    </script>
+</body>
+</html>
