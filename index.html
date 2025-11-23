@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Localizador GPS Móvil</title>
-   
+    
+    <!-- ENLACE A MANIFEST.JSON - ¡NUEVA LÍNEA CLAVE PARA MODO STANDALONE! -->
+    <link rel="manifest" href="manifest.json">
+    
     <!-- Carga de Tailwind CSS para un diseño moderno y móvil-friendly -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -34,16 +37,16 @@
         <p class="text-sm text-gray-400 mb-6 text-center">Toca el botón para obtener tu ubicación actual.</p>
 
         <!-- Botón de Acción -->
-        <button id="get-location-btn"
-                class="w-full py-3 px-4 mb-6 rounded-lg font-semibold transition duration-200
-                       bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/50
+        <button id="get-location-btn" 
+                class="w-full py-3 px-4 mb-6 rounded-lg font-semibold transition duration-200 
+                       bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/50 
                        focus:outline-none focus:ring-4 focus:ring-blue-500/50 active:scale-95">
             Obtener Coordenadas
         </button>
 
         <!-- Indicador de Carga/Mensajes -->
         <div id="message" class="text-center text-sm mb-4 text-yellow-400 hidden">
-            <!-- SVG de carga (Spinning loader) - Tags verificados y cerrados correctamente -->
+            <!-- SVG de carga (Spinning loader) -->
             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -54,12 +57,12 @@
         <!-- Resultados -->
         <div id="results-container" class="space-y-3 p-4 bg-gray-800 rounded-lg hidden">
             <h2 class="text-lg font-semibold text-green-400 mb-3 border-b border-gray-700 pb-2">Ubicación Obtenida</h2>
-           
+            
             <div class="flex flex-col">
                 <span class="result-label text-xs">Latitud:</span>
                 <span id="latitude" class="result-value font-mono">--</span>
             </div>
-           
+            
             <div class="flex flex-col">
                 <span class="result-label text-xs">Longitud:</span>
                 <span id="longitude" class="result-value font-mono">--</span>
@@ -118,7 +121,7 @@
             lonDisplay.textContent = coords.longitude.toFixed(6);
             accDisplay.textContent = Math.round(coords.accuracy);
             tsDisplay.textContent = date.toLocaleTimeString('es-ES') + ' (' + date.toLocaleDateString('es-ES') + ')';
-           
+            
             resultsContainer.classList.remove('hidden');
 
             // Opcional: Centrar la vista en el contenedor de resultados si está en móvil
@@ -170,7 +173,7 @@
             // Ocultar resultados y errores previos
             resultsContainer.classList.add('hidden');
             errorBox.classList.add('hidden');
-           
+            
             // Mostrar estado de carga y deshabilitar botón
             message.classList.remove('hidden');
             btn.disabled = true;
@@ -194,3 +197,4 @@
     </script>
 </body>
 </html>
+
