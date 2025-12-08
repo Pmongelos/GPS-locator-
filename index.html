@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Localizador GPS Móvil</title>
+    <title>Localizador GPS y Distancia</title>
     
-    <!-- ENLACE A MANIFEST.JSON - ¡NUEVA LÍNEA CLAVE PARA MODO STANDALONE! -->
+    <!-- ENLACE A MANIFEST.JSON para modo standalone (PWA) -->
     <link rel="manifest" href="manifest.json">
     
     <!-- Carga de Tailwind CSS para un diseño moderno y móvil-friendly -->
@@ -33,15 +33,15 @@
 <body class="p-4 flex items-center justify-center min-h-screen">
 
     <div id="app" class="card p-6 md:p-8 w-full max-w-sm mx-auto rounded-xl border border-gray-700">
-        <h1 class="text-2xl font-bold text-white mb-4 text-center">Localizador GPS</h1>
-        <p class="text-sm text-gray-400 mb-6 text-center">Toca el botón para obtener tu ubicación actual.</p>
+        <h1 class="text-2xl font-bold text-white mb-4 text-center">Localizador GPS y Distancias</h1>
+        <p class="text-sm text-gray-400 mb-6 text-center">Obtén tu posición y calcula la distancia a puntos fijos.</p>
 
         <!-- Botón de Acción -->
         <button id="get-location-btn" 
                 class="w-full py-3 px-4 mb-6 rounded-lg font-semibold transition duration-200 
                        bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/50 
                        focus:outline-none focus:ring-4 focus:ring-blue-500/50 active:scale-95">
-            Obtener Coordenadas
+            Obtener Coordenadas y Distancias
         </button>
 
         <!-- Indicador de Carga/Mensajes -->
@@ -54,9 +54,17 @@
             Buscando ubicación...
         </div>
 
-        <!-- Resultados -->
+        <!-- Alerta de Coincidencia (Nueva Sección) -->
+        <div id="match-alert" class="mt-6 p-4 bg-green-900/50 text-green-300 border border-green-700 rounded-xl text-center hidden">
+            <div class="text-3xl mb-2">🎉</div>
+            <p class="font-bold text-lg">¡Coincidencia de Ubicación Encontrada!</p>
+            <p id="matched-station-name" class="text-sm text-green-200 mt-1"></p>
+        </div>
+
+
+        <!-- Resultados de Ubicación Actual -->
         <div id="results-container" class="space-y-3 p-4 bg-gray-800 rounded-lg hidden">
-            <h2 class="text-lg font-semibold text-green-400 mb-3 border-b border-gray-700 pb-2">Ubicación Obtenida</h2>
+            <h2 class="text-lg font-semibold text-green-400 mb-3 border-b border-gray-700 pb-2">Tu Ubicación Actual</h2>
             
             <div class="flex flex-col">
                 <span class="result-label text-xs">Latitud:</span>
@@ -67,26 +75,24 @@
                 <span class="result-label text-xs">Longitud:</span>
                 <span id="longitude" class="result-value font-mono">--</span>
             </div>
-
-            <div class="flex flex-col">
-                <span class="result-label text-xs">Precisión (metros):</span>
-                <span id="accuracy" class="result-value">--</span>
-            </div>
-
-            <div class="flex flex-col">
-                <span class="result-label text-xs">Hora de Lectura:</span>
-                <span id="timestamp" class="result-value">--</span>
+        </div>
+        
+        <!-- RESULTADOS DE DISTANCIA A PUNTOS FIJOS -->
+        <div id="distance-results-container" class="mt-6 p-4 bg-gray-800 rounded-lg hidden">
+            <h2 class="text-lg font-semibold text-blue-400 mb-3 border-b border-gray-700 pb-2">Distancia a Puntos Fijos</h2>
+            <div id="distance-list" class="space-y-2">
+                <!-- Los resultados se inyectarán aquí -->
             </div>
         </div>
 
         <!-- Contenedor para Errores -->
-        <div id="error-box" class="p-3 bg-red-800/30 text-red-400 rounded-lg hidden">
+        <div id="error-box" class="p-3 mt-6 bg-red-800/30 text-red-400 rounded-lg hidden">
             <span class="font-bold">Error de GPS:</span> <span id="error-message"></span>
         </div>
 
         <!-- Sugerencia de instalación para móvil -->
         <div class="mt-6 p-3 text-center bg-gray-800/50 text-gray-400 text-xs rounded-lg border border-gray-700">
-            <p>Para usar como app, abre en tu navegador móvil y selecciona "Agregar a pantalla de inicio".</p>
+            <p>Modo PWA: se abre en ventana propia gracias al manifest.json.</p>
         </div>
     </div>
 
@@ -94,38 +100,106 @@
         const btn = document.getElementById('get-location-btn');
         const message = document.getElementById('message');
         const resultsContainer = document.getElementById('results-container');
+        const distanceContainer = document.getElementById('distance-results-container');
+        const distanceList = document.getElementById('distance-list');
         const errorBox = document.getElementById('error-box');
         const errorMessage = document.getElementById('error-message');
+        const matchAlert = document.getElementById('match-alert'); // NUEVO
+        const matchedNameDisplay = document.getElementById('matched-station-name'); // NUEVO
 
-        // Referencias a los campos de resultado
+        // Referencias a los campos de resultado de ubicación actual
         const latDisplay = document.getElementById('latitude');
         const lonDisplay = document.getElementById('longitude');
-        const accDisplay = document.getElementById('accuracy');
-        const tsDisplay = document.getElementById('timestamp');
+        
+        // =======================================================
+        // 1. COORDENADAS ALMACENADAS PARA LA COMPARACIÓN
+        // Puedes cambiar estas coordenadas por las que necesites.
+        // =======================================================
+        const STATIONS = [
+            { name: "Sede Central (Madrid)", lat: 40.4168, lon: -3.7038 }, // Madrid
+            { name: "Punto de Reunión (Barcelona)", lat: 41.3851, lon: 2.1734 }, // Barcelona
+            { name: "Almacén Sur (Sevilla)", lat: 37.3891, lon: -5.9845 } // Sevilla
+        ];
+
+        // =======================================================
+        // 2. FUNCIÓN DE CÁLCULO DE DISTANCIA (Fórmula de Haversine)
+        // =======================================================
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radio de la Tierra en kilómetros
+            const toRad = (degrees) => degrees * (Math.PI / 180);
+
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+
+            const a = 
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Distancia en km
+        }
 
         /**
          * Función que se ejecuta cuando se obtiene la ubicación con éxito.
          * @param {GeolocationPosition} position - Objeto con los datos de la posición.
          */
         function success(position) {
-            // Detener la carga y mostrar resultados
+            // Detener la carga y ocultar errores
             message.classList.add('hidden');
             btn.disabled = false;
-            btn.textContent = 'Obtener Coordenadas';
+            btn.textContent = 'Obtener Coordenadas y Distancias';
             errorBox.classList.add('hidden');
 
-            const coords = position.coords;
-            const date = new Date(position.timestamp);
-
-            latDisplay.textContent = coords.latitude.toFixed(6);
-            lonDisplay.textContent = coords.longitude.toFixed(6);
-            accDisplay.textContent = Math.round(coords.accuracy);
-            tsDisplay.textContent = date.toLocaleTimeString('es-ES') + ' (' + date.toLocaleDateString('es-ES') + ')';
+            const currentLat = position.coords.latitude;
+            const currentLon = position.coords.longitude;
+            let matchFound = false;
+            let matchedStationName = '';
             
+            // 1. Mostrar ubicación actual
+            latDisplay.textContent = currentLat.toFixed(6);
+            lonDisplay.textContent = currentLon.toFixed(6);
             resultsContainer.classList.remove('hidden');
 
+            // 2. Limpiar e inyectar resultados de distancia
+            distanceList.innerHTML = '';
+            
+            STATIONS.forEach(station => {
+                const distanceKm = calculateDistance(currentLat, currentLon, station.lat, station.lon);
+                
+                // --- LÓGICA DE COINCIDENCIA (NUEVO) ---
+                // Si la distancia es menor a 50 metros (0.05 km), se considera una coincidencia.
+                if (distanceKm < 0.05) { 
+                    matchFound = true;
+                    matchedStationName = station.name;
+                }
+                // -------------------------------------
+                
+                // Redondea a 2 decimales para mostrar
+                const formattedDistance = distanceKm.toFixed(2); 
+
+                // Crea el elemento de la lista
+                const listItem = document.createElement('div');
+                listItem.className = 'flex justify-between items-center py-2 border-b border-gray-700 last:border-b-0';
+                listItem.innerHTML = `
+                    <span class="text-gray-300 font-medium">${station.name}:</span>
+                    <span class="text-lg font-bold ${matchFound && matchedStationName === station.name ? 'text-green-300' : 'text-blue-300'}">${formattedDistance} km</span>
+                `;
+                distanceList.appendChild(listItem);
+            });
+
+            // 3. Mostrar la alerta de coincidencia si se encuentra una
+            if (matchFound) {
+                matchedNameDisplay.textContent = `Estás muy cerca de: ${matchedStationName}`;
+                matchAlert.classList.remove('hidden');
+            } else {
+                matchAlert.classList.add('hidden');
+            }
+            
+            distanceContainer.classList.remove('hidden');
+
             // Opcional: Centrar la vista en el contenedor de resultados si está en móvil
-            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            distanceContainer.scrollIntoView({ behavior: 'smooth' });
         }
 
         /**
@@ -136,13 +210,15 @@
             // Detener la carga y mostrar el error
             message.classList.add('hidden');
             btn.disabled = false;
-            btn.textContent = 'Obtener Coordenadas';
+            btn.textContent = 'Obtener Coordenadas y Distancias';
             resultsContainer.classList.add('hidden');
+            distanceContainer.classList.add('hidden');
+            matchAlert.classList.add('hidden'); // Ocultar coincidencia en caso de error
 
             let msg = '';
             switch (err.code) {
                 case err.PERMISSION_DENIED:
-                    msg = "Permiso denegado: Necesitas permitir el acceso a la ubicación.";
+                    msg = "Permiso denegado: Necesitas permitir el acceso a la ubicación. Asegúrate de estar en un entorno HTTPS si no es localhost.";
                     break;
                 case err.POSITION_UNAVAILABLE:
                     msg = "Posición no disponible: No se puede determinar la ubicación.";
@@ -172,7 +248,9 @@
 
             // Ocultar resultados y errores previos
             resultsContainer.classList.add('hidden');
+            distanceContainer.classList.add('hidden');
             errorBox.classList.add('hidden');
+            matchAlert.classList.add('hidden'); // Siempre ocultar al inicio
             
             // Mostrar estado de carga y deshabilitar botón
             message.classList.remove('hidden');
@@ -180,7 +258,6 @@
             btn.textContent = 'Buscando...';
 
             // Opciones de Geolocation: alta precisión y tiempo máximo de espera de 10 segundos
-            // Usamos enableHighAccuracy: true para forzar el uso de GPS si es posible (especialmente en exteriores)
             const options = {
                 enableHighAccuracy: true,
                 timeout: 10000,
