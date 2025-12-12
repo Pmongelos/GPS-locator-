@@ -1,7 +1,7 @@
 {
-  "name": "Localizador GPS",
-  "short_name": "MiGPS",
-  "description": "Aplicación para obtener coordenadas GPS sin conexión.",
+  "name": "ToMoko",
+  "short_name": "Moko",
+  "description": "Captura símbolos Maorís.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d1117",
