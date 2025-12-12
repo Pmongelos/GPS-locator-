@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Localizador GPS y Distancia</title>
+    <title>Localizador To Moko</title>
     
     <!-- ENLACE A MANIFEST.JSON para modo standalone (PWA) -->
     <link rel="manifest" href="manifest.json">
@@ -33,15 +33,15 @@
 <body class="p-4 flex items-center justify-center min-h-screen">
 
     <div id="app" class="card p-6 md:p-8 w-full max-w-sm mx-auto rounded-xl border border-gray-700">
-        <h1 class="text-2xl font-bold text-white mb-4 text-center">Localizador GPS y Distancias</h1>
-        <p class="text-sm text-gray-400 mb-6 text-center">Obtén tu posición y calcula la distancia a puntos fijos.</p>
+        <h1 class="text-2xl font-bold text-white mb-4 text-center">Localizador To Moko</h1>
+        <p class="text-sm text-gray-400 mb-6 text-center">Captura los simbolos Maorí escondidos</p>
 
         <!-- Botón de Acción -->
         <button id="get-location-btn" 
                 class="w-full py-3 px-4 mb-6 rounded-lg font-semibold transition duration-200 
                        bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/50 
                        focus:outline-none focus:ring-4 focus:ring-blue-500/50 active:scale-95">
-            Obtener Coordenadas y Distancias
+            Buscar
         </button>
 
         <!-- Indicador de Carga/Mensajes -->
@@ -51,15 +51,17 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            Buscando ubicación...
+            Buscando To Moko...
         </div>
 
         <!-- Alerta de Coincidencia (Nueva Sección) -->
         <div id="match-alert" class="mt-6 p-4 bg-green-900/50 text-green-300 border border-green-700 rounded-xl text-center hidden">
             <div class="text-3xl mb-2">🎉</div>
-            <p class="font-bold text-lg">¡Coincidencia de Ubicación Encontrada!</p>
-            <p id="matched-station-name" class="text-sm text-green-200 mt-1"></p>
-            <img src="/img/koru.jpg">
+            <p class="font-bold text-lg">¡Has capturado un Moko!</p>
+            <p class="text-sm text-green-200 mt-1">Estás muy cerca de </p>
+            <p id="matched-station-name" class="font-bold text-lg"></p>
+            <img id="matched-station-img" src="">
+            <p id="matched-station-description" class="text-sm text-green-200 mt-1 text-justify"></p>
         </div>
 
 
@@ -80,7 +82,7 @@
         
         <!-- RESULTADOS DE DISTANCIA A PUNTOS FIJOS -->
         <div id="distance-results-container" class="mt-6 p-4 bg-gray-800 rounded-lg hidden">
-            <h2 class="text-lg font-semibold text-blue-400 mb-3 border-b border-gray-700 pb-2">Distancia a Puntos Fijos</h2>
+            <h2 class="text-lg font-semibold text-blue-400 mb-3 border-b border-gray-700 pb-2">Otros símbolos cercanos</h2>
             <div id="distance-list" class="space-y-2">
                 <!-- Los resultados se inyectarán aquí -->
             </div>
@@ -107,20 +109,14 @@
         const errorMessage = document.getElementById('error-message');
         const matchAlert = document.getElementById('match-alert'); // NUEVO
         const matchedNameDisplay = document.getElementById('matched-station-name'); // NUEVO
+        const imgItem = document.getElementById('matched-station-img'); // NUEVO
+        const descriptionItem = document.getElementById('matched-station-description'); // NUEVO
 
         // Referencias a los campos de resultado de ubicación actual
         const latDisplay = document.getElementById('latitude');
         const lonDisplay = document.getElementById('longitude');
         
-        // =======================================================
-        // 1. COORDENADAS ALMACENADAS PARA LA COMPARACIÓN
-        // Puedes cambiar estas coordenadas por las que necesites.
-        // =======================================================
-        const STATIONS = [
-            { name: "Sede Central (Madrid)", lat: 40.4168, lon: -3.7038 }, // Madrid
-            { name: "Punto de Reunión (Barcelona)", lat: 41.3851, lon: 2.1734 }, // Barcelona
-            { name: "Almacén Sur (Sevilla)", lat: 37.3891, lon: -5.9845 } // Sevilla
-        ];
+
 
         // =======================================================
         // 2. FUNCIÓN DE CÁLCULO DE DISTANCIA (Fórmula de Haversine)
@@ -145,17 +141,21 @@
          * Función que se ejecuta cuando se obtiene la ubicación con éxito.
          * @param {GeolocationPosition} position - Objeto con los datos de la posición.
          */
-        function success(position) {
+        function success() {
+     
             // Detener la carga y ocultar errores
             message.classList.add('hidden');
             btn.disabled = false;
-            btn.textContent = 'Obtener Coordenadas y Distancias';
+            btn.textContent = 'Buscar de nuevo';
             errorBox.classList.add('hidden');
 
+            //const currentLat = -37;
+            //const currentLon = 174.8;
             const currentLat = position.coords.latitude;
             const currentLon = position.coords.longitude;
             let matchFound = false;
             let matchedStationName = '';
+
             
             // 1. Mostrar ubicación actual
             latDisplay.textContent = currentLat.toFixed(6);
@@ -167,31 +167,57 @@
             
             STATIONS.forEach(station => {
                 const distanceKm = calculateDistance(currentLat, currentLon, station.lat, station.lon);
-                
+
                 // --- LÓGICA DE COINCIDENCIA (NUEVO) ---
                 // Si la distancia es menor a 50 metros (0.05 km), se considera una coincidencia.
-                if (distanceKm < 50) { 
+                if (distanceKm < 15) { 
                     matchFound = true;
                     matchedStationName = station.name;
+                    matchedStationImg = station.img;
+                    matchedStationDescription = station.description;
                 }
                 // -------------------------------------
                 
                 // Redondea a 2 decimales para mostrar
                 const formattedDistance = distanceKm.toFixed(2); 
-
+                station.distance = formattedDistance ;
                 // Crea el elemento de la lista
+                //const listItem = document.createElement('div');
+                //listItem.className = 'flex justify-between items-center py-2 border-b border-gray-700 last:border-b-0';
+                //listItem.innerHTML = `
+                //    <span class="text-gray-300 font-medium">${station.name}:</span>
+                //    <span class="text-lg font-bold ${matchFound && matchedStationName === station.name ? 'text-green-300' : 'text-blue-300'}">${formattedDistance} km</span>
+                //`;
+                //distanceList.appendChild(listItem);
+       
+            });
+            // PONER EN ORDER ASCENDENTE DE DISTANCIA 
+            tempStation = {name: "", img:"", description: "", lat: -45.9003812, lon: 168.2480360};
+            for(var g=0; g<STATIONS.length; g++){
+                for(var f=g; f<STATIONS.length; f++){ 
+                    if (STATIONS[g].distance < STATIONS[f].distance){
+                        tempStation = STATIONS[g];
+                        STATIONS[g] = STATIONS[f];
+                        STATIONS[f] = tempStation;
+                    };
+                };
+            };
+            // PUBLICAR SOLO LAS 3 MAS CERCANAS
+            for(var g=0; g<3; g++){
                 const listItem = document.createElement('div');
                 listItem.className = 'flex justify-between items-center py-2 border-b border-gray-700 last:border-b-0';
                 listItem.innerHTML = `
-                    <span class="text-gray-300 font-medium">${station.name}:</span>
-                    <span class="text-lg font-bold ${matchFound && matchedStationName === station.name ? 'text-green-300' : 'text-blue-300'}">${formattedDistance} km</span>
+                    <span class="text-gray-300 font-medium">🏆${STATIONS[g].name}:</span>
+                    <span class="text-lg font-bold ${matchFound && matchedStationName === STATIONS[g].name ? 'text-green-300' : 'text-blue-300'}">${STATIONS[g].distance} km</span>
                 `;
                 distanceList.appendChild(listItem);
-            });
+            };
 
             // 3. Mostrar la alerta de coincidencia si se encuentra una
             if (matchFound) {
-                matchedNameDisplay.textContent = `Estás muy cerca de: ${matchedStationName}`;
+                matchedNameDisplay.textContent =`${matchedStationName}`;
+                imgItem.src = matchedStationImg ;
+                descriptionItem.textContent = matchedStationDescription ;
                 matchAlert.classList.remove('hidden');
             } else {
                 matchAlert.classList.add('hidden');
@@ -200,7 +226,8 @@
             distanceContainer.classList.remove('hidden');
 
             // Opcional: Centrar la vista en el contenedor de resultados si está en móvil
-            distanceContainer.scrollIntoView({ behavior: 'smooth' });
+            //distanceContainer.scrollIntoView({ behavior: 'smooth' });
+            matchAlert.scrollIntoView({ behavior: 'smooth' });
         }
 
         /**
@@ -266,13 +293,135 @@
             };
 
             // Llamada a la API de Geolocation
-            navigator.geolocation.getCurrentPosition(success, error, options);
+           navigator.geolocation.getCurrentPosition(success, error, options);
+            //success();
         }
 
         // Asignar el evento click al botón
         btn.addEventListener('click', getLocation);
 
+        // =======================================================
+        // 1. COORDENADAS ALMACENADAS PARA LA COMPARACIÓN
+        // Puedes cambiar estas coordenadas por las que necesites.
+        // =======================================================
+        const STATIONS = [
+{ name: "Urutengangana", img:"img/Urutengangana.jpg", description: `Urutengangana is the Māori god of light. He is the eldest of the
+children of Ranginui the Sky Father and Papatūānuku the Earth
+Mother. His children were the gods of the stars and the moon.`, lat: -41.1680009, lon: 174.0608852 },
+
+{ name: "Tumatauenga", img:"img/Tumatauenga.jpg", description: `
+Tū or Tumatauenga is the Māori god of war, hunting, food cultivation,
+fishing and cooking. The Māori would dedicate hunting trips and war-
+parties to Tūmatauenga.`, lat: -39.3524332, lon: 174.2214992},
+
+{ name: "Rūaumoko", img:"img/ruaumoko.jpg", description: `
+Rūaumoko is the god of earthquakes, volcanoes and seasons. He is
+the youngest son of Ranginui the Sky Father and Papatūānuku the
+Earth Mother. Although thought to be a kind god, Rūaumoko (like
+earthquakes and volcanoes) also represents danger and destruction.`, lat: -42.1119642, lon: 172.6010590},
+
+
+{ name: "Rongo", img:"img/rongo.jpg", description: `
+In Māori mythology, Rongo or Rongo-mā-Tāne is the god of cultivated
+plants, or agriculture, especially the production of kūmara (yams).
+The Māori relied heavily on their harvests, and would offer the first
+kumara of the season to Rongo.`, lat: -42.9150553, lon: 171.9547704},
+
+{ name: "Mangopare", img:"img/Mangopare.jpg", description: `
+The Mangopare symbol depicts the hammerhead shark. It
+symbolizes strength, termination, strong will and fighting spirit. Māori
+believed sharks to be protective spirits, and shark teeth necklaces
+were common status symbols amongst tribe leaders.`, lat: -43.0951999, lon: 171.6749412 },
+
+{ name: "Moana", img:"img/Moana.jpg", description: `
+Moana means an open body of water – an ocean or sea. The term
+Moana, meaning ocean, is common to all Polynesian cultures. To the
+Māori, the sea was the source of all life, and the sea was relied on for
+sustenance, through fishing. The sea can be calm, energetic or
+dangerous at different times. These qualities are reflected in the
+meaning of the Moana symbol.`, lat: -44.2120705, lon: 170.3153667 },
+
+
+{ name: "Koru Aihe", img:"img/KoruAihe.jpg", description: `
+The Koru Aihe inspired by dolphins symbolizes playfulness, harmony
+and friendship. Māori revered dolphins, as they did whales, believing
+them to be water spirits. Legendary tales tell of sailors being guided
+through treacherous waterways by gods who had taken the form of
+dolphins.`, lat: -45.0665814, lon: 169.3391402 },
+        
+{ name: "Koru Honu", img:"img/KoruHonu.jpg", description: `
+The Koru Honu depicts a sea turtle in the act of swimming. Turtles
+symbolize travel and navigation in Māori culture. Additional meanings
+include fertility, longevity, peacefulness and unity.`, lat: -45.9003812, lon: 168.2480360},
+
+{ name: "Wera", img:"img/Wera.jpg", description: `
+The Wera symbol represents the tail of a whale. Whales were tapu
+(sacred) to the Māori. They were thought to be descended from the
+god of the ocean and were therefore supernatural in nature. The
+Wera symbolizes the ocean and a guardian spirit, especially for those
+at sea.`, lat: -46.2879781, lon: 167.9119636},
+
+{ name: "Toki Adze", img:"img/TokiAdze.jpg", description: `
+The Toki Adze is a ceremonial chisel used by the Māori for occasions
+such as the felling of a tree in order to carve a canoe, or to produce
+carved symbols to adorn buildings and structures that are important
+to the tribe. As a symbol, the Toki represents strength and authority.`, lat: -41.1969129, lon: 174.9736962 },
+
+{ name: "pekapeka", img:"img/pekapekamaori.jpg", description: `
+Pekapeka is the Māori word for bat. Bats are the only land mammal
+native to New Zealand. The Māori would hunt by kindling a fire in the
+hollow of a tree, catching the bats in the air as they tried to escape
+`, lat: -37.0661338, lon: 174.8635439 },
+
+{ name: "Hei Taiaha", img:"img/heiTaiaha.jpg", description: `
+A Taiaha is a traditional Māori weapon. It is a short fighting staff
+weapon made for close-quarters combat. Carved from either wood
+or whalebone, these weapons represent treasured items. The Hei
+Taiaha symbolizes the Māori warrior culture.`, lat: -43.6026796, lon: 172.5781912},
+
+{ name: "Hei Tiki", img:"img/HeiTiki.jpg", description: `
+The Hei Tiki is commonly regarded as a symbol of good luck and of
+fertility, representing the unborn human embryo. Hei Tiki is thought to
+be a representation of the first man. The Māori believe the wearer of
+a tiki talisman to be clear thinking, perceptive, loyal and
+knowledgeable.`, lat: -38.0939447, lon: 176.1518002 },
+
+{ name: "Manaia", img:"img/Manaia.jpg", description: `
+The Manaia symbol represents a mythological spiritual guardian, or
+messenger. It is traditionally depicted with the head of a bird, body of
+a man and the tail of a fish. The Manaia guards against evil and
+guides the spirit.`, lat: -39.3582506, lon: 175.8262772 },
+
+{ name: "Pikorua Double Twist", img:"img/Pikorua.jpg", description: `
+The Pikorua double twist represents the joining together of two
+people, or two cultures for eternity. Although they may experience
+ups and downs, they will remain bonded by friendship and loyalty for
+life.`, lat: -38.3720292, lon: 175.1396016 },
+
+{ name: "Pikorua Single Twist ", img:"img/Pikorua1.jpg", description: `
+The Pikorua single twist represents the path of life, it is the symbol of
+eternity. It represents the joining together of two people. The
+meaning of the Pikorua single twist is different from the double twist
+Pikorua`, lat: -42.0759953, lon: 172.8207128 },
+
+{ name: "Hei Matau", img:"img/HeiMatau.jpg", description: `
+The Hei Matau, or the fish hook, symbolizes prosperity. In their quiet
+corner of the South Pacific, fish stocks were plentiful, and the Māori
+knew that a man (or woman) who had the means to catch fish would
+prosper. The Hei Matau also represents strength, determination
+(required for good fishing), good health (acquired by good eating),
+and providing a safe journey over water.`, lat: -39.4759475, lon: 175.4573666 },
+
+{ name: "Koru", img:"img/Koru.jpg", description: `
+The Koru motif is the cornerstone of much Māori art. It is not
+considered tapu (sacred) in and of itself, but recurs in sacred
+designs. It represents the young frond of the silver fern, which is
+native only to New Zealand. As such, in recent years the symbol has
+come to be used to represent New Zealand in many ways, not only
+Māori culture. The Koru symbolizes life, growth, strength and peace.
+Its shape conveys ideas of movement, latent and potential energy,
+creation and renewal, light and enlightenment.`, lat: -38.8155306, lon: 175.7608625 }
+        ];
     </script>
 </body>
 </html>
-
